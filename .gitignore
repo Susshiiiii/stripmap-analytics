@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+# production data must never be pushed to this public repo
+*.xlsx
+*.xls
+*.csv
+brag-output/
+.claude/

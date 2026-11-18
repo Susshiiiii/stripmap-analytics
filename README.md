@@ -1,24 +1,20 @@
-# VEGA & SPARROW Defect Monitoring Dashboard
+# Stripmap Analytics
 
-This version replaces the Plotly grid chart with 960 individually rendered unit tiles. The top-right tile is Unit 1; Unit 2 is directly underneath, and numbering follows the serpentine pattern from the provided layout. Hover over a tile to see X, Y, unit number, and reject count.
+Streamlit dashboard for semiconductor strip defect analysis on VEGA, SPARROW, SQUID and SOLARIS devices.
+Every physical unit on a strip is drawn as its own tile, numbered in the strip's serpentine order.
 
-## Run on Windows
-1. Extract this ZIP into a new folder.
-2. Open a terminal in that folder.
-3. Install dependencies:
-   ```powershell
-   python -m pip install -r requirements.txt
-   ```
-4. Check the syntax:
-   ```powershell
-   python -m py_compile app.py
-   ```
-5. Launch:
-   ```powershell
-   python -m streamlit run app.py
-   ```
+## Features
+- **Dashboard & Stations**: KPI cards (rejects, lots, affected units, estimated yield), severity mix, daily yield-loss trend,
+  2D unit map, top 10 hotspots, raw data stream, and per-station analytics (Die Attach, Wire Bond, Strip AOI, Lid AOI).
+- **Mapping Painter**: click units to mark rejects, then export the list as CSV.
+- **Unit Finder**: convert X/Y coordinates to a unit number and back.
+- Sidebar navigation, collapsible filters with Latest Date / Latest Week presets, data editor, light and dark mode.
 
-## Data input
-The app supports `.xlsx` and `.csv`. For the supplied UGP workbook it reads the first worksheet and recognizes `ProdDate`, `USMDevice`, `MESLotID`, `IFXLotNo`, `StripID`, `StripX`, `StripY`, `MachineRejectCode`, and `UserRejectCode`.
+## Run locally
+```bash
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
+```
 
-The color legend is unchanged: green = 0 rejects, pink = 1–4, orange = 5–14, red = 15 or more.
+Then upload the master workbook (`Rejects` + `Average` sheets) in the sidebar under **Data**.
+Production data files are not stored in this repository.

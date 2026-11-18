@@ -1,0 +1,7 @@
+[theme]
+base = "dark"
+primaryColor = "#2997FF"
+backgroundColor = "#000000"
+secondaryBackgroundColor = "#1C1C1E"
+textColor = "#F5F5F7"
+baseRadius = "12px"
