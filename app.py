@@ -167,8 +167,9 @@ body:has([data-testid="stSidebar"][aria-expanded="false"]) .block-container {{ p
 .data-status .dot.on {{ background: var(--success); box-shadow: 0 0 0 3px rgba(48,209,88,0.18); }}
 .data-status .dot.off {{ background: var(--text2); opacity: .5; }}
 .empty-state {{ max-width: 640px; margin: 8vh auto 0; padding: 40px 32px; }}
-.st-key-btn_latest_date button, .st-key-btn_latest_week button {{ padding: .5rem .3rem !important; min-height: 40px; }}
-.st-key-btn_latest_date button p, .st-key-btn_latest_week button p {{ font-size: 12px !important; white-space: nowrap; }}
+[class*="st-key-btn_latest_"] button {{ padding: .35rem .2rem !important; min-height: 36px; }}
+.preset-label {{ font-size: 12px; color: var(--text2); margin: -4px 2px -6px; }}
+[class*="st-key-btn_latest_"] button p {{ font-size: 12.5px !important; white-space: nowrap; }}
 [data-testid="stPopover"] button {{ border-radius: 980px !important; border: 1px solid var(--border-strong) !important;
   background: var(--input) !important; color: #FF453A !important; }}
 [data-testid="stPopover"] button p {{ color: #FF453A !important; }}
@@ -798,7 +799,7 @@ if PAGE == "painter":
         <body><div class="matrix-scroll"><div class="panels">{''.join(painter_html_panels)}{painter_y_axis_html}</div></div>
         </body></html>'''
     
-        st.iframe(painter_map_html, height=540)
+        st.iframe(painter_map_html, height="content")
 
     st.markdown("---")
     st.subheader("📋 StripMap Reference Image Viewer")
@@ -1020,13 +1021,16 @@ with sb_filters:
         st.session_state["gen_lots"] = sorted(in_window["MESLotID"].dropna().unique().tolist())
 
 
-    date_col, latest_col, week_col = st.columns([2.25, 1, 1], vertical_alignment="bottom", gap="small")
-    date_range = date_col.date_input("Production date", key="gen_date")
-    latest_col.button("Latest Date", key="btn_latest_date", width="stretch", help=f"Only {max_date:%Y-%m-%d}",
-                      on_click=apply_quick_range, args=(1, cat_base_raw, max_date))
-    week_col.button("Latest Week", key="btn_latest_week", width="stretch",
-                    help=f"{max_date - timedelta(days=6):%Y-%m-%d} to {max_date:%Y-%m-%d}",
-                    on_click=apply_quick_range, args=(7, cat_base_raw, max_date))
+    date_range = st.date_input("Production date", key="gen_date")
+    st.markdown('<div class="preset-label">Latest</div>', unsafe_allow_html=True)
+    DATE_PRESETS = [("1 Day", 1, "btn_latest_date"), ("1 Week", 7, "btn_latest_week"),
+                    ("2 Weeks", 14, "btn_latest_2weeks"), ("1 Month", 30, "btn_latest_month")]
+    for col, (p_label, p_days, p_key) in zip(st.columns(4, gap="small"), DATE_PRESETS):
+        p_start = max_date - timedelta(days=p_days - 1)
+        p_active = isinstance(date_range, (tuple, list)) and tuple(date_range) == (p_start, max_date)
+        col.button(p_label, key=p_key, width="stretch", type="primary" if p_active else "secondary",
+                   help=f"{p_start:%Y-%m-%d} to {max_date:%Y-%m-%d}" if p_days > 1 else f"Only {max_date:%Y-%m-%d}",
+                   on_click=apply_quick_range, args=(p_days, cat_base_raw, max_date))
 
     selected_lots = sidebar_multiselect_all("Production lots", lot_options, "gen_lots", icon=":material/inventory_2:")
     selected_user_codes = sidebar_multiselect_all("Reject codes", available_general_codes, "gen_ucode", icon=":material/report:")
@@ -1230,15 +1234,17 @@ if PAGE == "dashboard":
         
             x_footer_html = "".join([f'<div class="axis-x-label">{x}</div>' for x in x_values])
         
+            panel_rej = sum(int(coordinate_rejects.get((x, y), 0)) for x in x_values for y in range(1, max_y + 1))
             panel_html_parts.append(
                 f'<section class="panel"><div class="panel-title">{panel_name}</div>'
+                f'<div class="panel-count"><b>{panel_rej:,}</b> rejects</div>'
                 f'<div class="axis-x-row" style="grid-template-columns: repeat({len(x_values)}, 22px);">{x_header_html}</div>'
                 f'<div class="panel-grid" style="grid-template-columns: repeat({len(x_values)}, 22px);">{"".join(tile_html)}</div>'
                 f'<div class="axis-x-row" style="grid-template-columns: repeat({len(x_values)}, 22px);">{x_footer_html}</div></section>'
             )
 
         y_axis_labels_html = "".join([f'<div class="axis-y-label">{y}</div>' for y in range(1, max_y + 1)])
-        y_axis_column_html = f'<section class="y-panel"><div class="panel-title">Y</div><div class="axis-x-row"></div><div class="y-axis-grid">{y_axis_labels_html}</div><div class="axis-x-row"></div></section>'
+        y_axis_column_html = f'<section class="y-panel"><div class="panel-title">Y</div><div class="panel-count">&nbsp;</div><div class="axis-x-row"></div><div class="y-axis-grid">{y_axis_labels_html}</div><div class="axis-x-row"></div></section>'
 
         unit_map_html = f'''<!DOCTYPE html>
         <html><head><meta charset="utf-8">
@@ -1250,6 +1256,9 @@ if PAGE == "dashboard":
         .panel {{ flex: 0 0 auto; }}
         .y-panel {{ flex: 0 0 auto; margin-left: 2px; }}
         .panel-title {{ text-align: center; color: {T["text"]}; font-size: 12px; font-weight: 600; padding: 0 0 5px 0; }}
+        .panel-count {{ display: block; width: fit-content; margin: 0 auto 4px; height: 20px; line-height: 20px; padding: 0 10px; border-radius: 980px; font-size: 11px; color: {T["text2"]}; background: {T["input"]}; border: 1px solid {T["border"]}; }}
+        .panel-count b {{ color: {T["text"]}; font-weight: 700; }}
+        .y-panel .panel-count {{ visibility: hidden; }}
         .axis-x-row {{ display: grid; gap: 2px; margin: 4px 0; height: 10px; }}
         .axis-x-label {{ width: 22px; text-align: center; color: {T["text2"]}; font-size: 8px; font-weight: 600; line-height: 10px; }}
         .panel-grid {{ display: grid; grid-auto-rows: 22px; gap: 2px; }}
@@ -1262,7 +1271,7 @@ if PAGE == "dashboard":
         <body><div class="matrix-scroll"><div class="panels">{''.join(panel_html_parts)}{y_axis_column_html}</div></div>
         <div class="legend-note">Hover over a unit to view X, Y, unit number, and reject count.</div>
         </body></html>'''
-        st.iframe(unit_map_html, height=540)
+        st.iframe(unit_map_html, height="content")
 
         legend_cols = st.columns(5)
         legends_data = [
@@ -1451,15 +1460,17 @@ if PAGE == "dashboard":
                         t_tooltip = f"Station: {stn_label}&#10;X: {x}&#10;Y: {y}&#10;Unit: {u_id}&#10;Rejects: {cnt}"
                         t_html.append(f'<div class="unit" style="background:{t_col}" title="{t_tooltip}">{u_id}</div>')
                 x_ftr = "".join([f'<div class="axis-x-label">{x}</div>' for x in x_vals])
+                s_panel_rej = sum(int(s_coord_rej.get((x, y), 0)) for x in x_vals for y in range(1, stn_my + 1))
                 s_html_parts.append(
                     f'<section class="panel"><div class="panel-title">{p_name}</div>'
+                    f'<div class="panel-count"><b>{s_panel_rej:,}</b> rejects</div>'
                     f'<div class="axis-x-row" style="grid-template-columns: repeat({len(x_vals)}, 22px);">{x_hdr}</div>'
                     f'<div class="panel-grid" style="grid-template-columns: repeat({len(x_vals)}, 22px);">{"".join(t_html)}</div>'
                     f'<div class="axis-x-row" style="grid-template-columns: repeat({len(x_vals)}, 22px);">{x_ftr}</div></section>'
                 )
 
             s_y_lbls = "".join([f'<div class="axis-y-label">{y}</div>' for y in range(1, stn_my + 1)])
-            s_y_col = f'<section class="y-panel"><div class="panel-title">Y</div><div class="axis-x-row"></div><div class="y-axis-grid">{s_y_lbls}</div><div class="axis-x-row"></div></section>'
+            s_y_col = f'<section class="y-panel"><div class="panel-title">Y</div><div class="panel-count">&nbsp;</div><div class="axis-x-row"></div><div class="y-axis-grid">{s_y_lbls}</div><div class="axis-x-row"></div></section>'
 
             stn_map_html = f'''<!DOCTYPE html>
             <html><head><meta charset="utf-8">
@@ -1471,6 +1482,9 @@ if PAGE == "dashboard":
             .panel {{ flex: 0 0 auto; }}
             .y-panel {{ flex: 0 0 auto; margin-left: 2px; }}
             .panel-title {{ text-align: center; color: {T["text"]}; font-size: 11px; font-weight: 600; padding-bottom: 3px; }}
+            .panel-count {{ display: block; width: fit-content; margin: 0 auto 4px; height: 20px; line-height: 20px; padding: 0 10px; border-radius: 980px; font-size: 11px; color: {T["text2"]}; background: {T["input"]}; border: 1px solid {T["border"]}; }}
+            .panel-count b {{ color: {T["text"]}; font-weight: 700; }}
+            .y-panel .panel-count {{ visibility: hidden; }}
             .axis-x-row {{ display: grid; gap: 2px; margin: 3px 0; height: 10px; }}
             .axis-x-label {{ width: 22px; text-align: center; color: {T["text2"]}; font-size: 8px; font-weight: 600; line-height: 10px; }}
             .panel-grid {{ display: grid; grid-auto-rows: 22px; gap: 2px; }}
@@ -1479,4 +1493,4 @@ if PAGE == "dashboard":
             .unit {{ width: 22px; height: 22px; border: 1px solid {T["tile_border"]}; border-radius: 2px; display: flex; align-items: center; justify-content: center; color: #101318; font-size: 7px; font-weight: 600; cursor: help; }}
             </style></head>
             <body><div class="matrix-scroll"><div class="panels">{''.join(s_html_parts)}{s_y_col}</div></div></body></html>'''
-            st.iframe(stn_map_html, height=480)
+            st.iframe(stn_map_html, height="content")
