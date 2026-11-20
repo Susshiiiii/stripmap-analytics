@@ -1319,16 +1319,25 @@ if PAGE == "dashboard":
     # ==========================================
     st.markdown("---")
     st.markdown("## 🏭 Detailed Station Analytics & Heatmaps")
-    st.caption("Detailed breakdown for Die Attach, Wire Bond, Strip AOI, and Lid AOI with official reject codes.")
+    st.caption("Detailed breakdown for Die Attach, Wire Bond, Strip AOI, and Lid AOI with official reject codes. "
+               "Follows the sidebar production date (and lots, when the station shows the same device).")
+
+    # Stations follow the sidebar date range (incl. the Latest presets); rows without a date are kept,
+    # same rule as the general view.
+    station_source = raw
+    if isinstance(date_range, (tuple, list)) and len(date_range) == 2 and raw["Timestamp"].notna().any():
+        _d0, _d1 = date_range
+        station_source = raw[raw["Timestamp"].isna() | raw["Timestamp"].dt.date.between(_d0, _d1)]
+    lots_filter_active = 0 < len(selected_lots) < len(lot_options)
 
     for idx, stn_label in enumerate(stations_list):
         with st.container(border=True, key=f"glass_station_{idx}"):
             st.markdown(f"### 📍 Station: {stn_label}")
 
             t_codes = STATION_CODES.get(stn_label, [])
-            stn_raw_base = raw[raw["UserRejectCode_Str"].isin(t_codes)]
+            stn_raw_base = station_source[station_source["UserRejectCode_Str"].isin(t_codes)]
 
-            stn_avail_codes = sorted(list(set(str(x) for x in stn_raw_base["UserRejectCode_Str"].dropna().unique().tolist())))
+            stn_avail_codes = sorted(list(set(str(x) for x in raw.loc[raw["UserRejectCode_Str"].isin(t_codes), "UserRejectCode_Str"].dropna().unique().tolist())))
 
             sf1, sf2, sf3 = st.columns(3)
             stn_cat = sf1.selectbox("Device Category", category_options, index=0, key=f"stn_cat_{idx}")
@@ -1347,6 +1356,9 @@ if PAGE == "dashboard":
             )
 
             stn_df = stn_raw_base[stn_raw_base["Device_Category"] == stn_cat].copy()
+            # Lot IDs are per device; apply the sidebar lot selection when this station shows the same device.
+            if lots_filter_active and stn_cat == selected_category:
+                stn_df = stn_df[stn_df["MESLotID"].isin(selected_lots)]
             if stn_dev_sel != "ALL":
                 stn_df = stn_df[stn_df["DeviceID"] == stn_dev_sel]
 
